@@ -23,6 +23,8 @@ function imOut = gaussianFilter(im, params)
 if nargin < 2, params = struct(); end
 if ~isfield(params, 'sigma'), params.sigma = 1.5; end
 
-sigma = max(1e-3, params.sigma);
+% Cast to double: imgaussfilt builds a Gaussian kernel via fspecial, which
+% requires a double sigma argument in all MATLAB versions.
+sigma = double(max(1e-3, double(params.sigma)));
 imOut = im2single(imgaussfilt(im2single(im), sigma, 'Padding', 'replicate'));
 end

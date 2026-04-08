@@ -29,7 +29,11 @@ if nargin < 2, params = struct(); end
 if ~isfield(params, 'spatialSigma'), params.spatialSigma = 3;   end
 if ~isfield(params, 'rangeSigma'),   params.rangeSigma   = 0.1; end
 
-dos   = max(1e-8, params.rangeSigma)^2;   % variance for imbilatfilt
-imOut = im2single(imbilatfilt(im2single(im), dos, params.spatialSigma, ...
+% Cast to double: imbilatfilt passes spatialSigma to fspecial('gaussian')
+% which requires a double scalar; rangeSigma^2 feeds the intensity kernel.
+dos = double(max(1e-8, double(params.rangeSigma)))^2;   % variance for imbilatfilt
+spSig = double(params.spatialSigma);
+
+imOut = im2single(imbilatfilt(im2single(im), dos, spSig, ...
     'Padding', 'replicate'));
 end

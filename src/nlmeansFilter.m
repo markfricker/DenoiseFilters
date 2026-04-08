@@ -37,18 +37,19 @@ if ~isfield(params, 'degreeOfSmoothing'),    params.degreeOfSmoothing    = 0.02;
 if ~isfield(params, 'searchWindowSize'),     params.searchWindowSize     = 21;   end
 if ~isfield(params, 'comparisonWindowSize'), params.comparisonWindowSize = 7;    end
 
-% Enforce odd sizes
-sw = max(3, round(params.searchWindowSize));
+% Enforce odd sizes and cast to double: imnlmfilt passes window sizes to
+% internal imfilter-based operations that require double scalar arguments.
+sw = double(max(3, round(double(params.searchWindowSize))));
 if mod(sw, 2) == 0, sw = sw + 1; end
 
-cw = max(3, round(params.comparisonWindowSize));
+cw = double(max(3, round(double(params.comparisonWindowSize))));
 if mod(cw, 2) == 0, cw = cw + 1; end
 
 % Comparison window must be strictly smaller than search window
 cw = min(cw, sw - 2);
 cw = max(cw, 3);
 
-h     = max(1e-8, params.degreeOfSmoothing);
+h     = double(max(1e-8, double(params.degreeOfSmoothing)));
 imOut = im2single(imnlmfilt(im2single(im), ...
     'DegreeOfSmoothing',   h, ...
     'SearchWindowSize',    sw, ...

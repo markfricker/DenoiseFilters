@@ -44,10 +44,11 @@ function Ism = orientedGaussSmooth(I, params)
 %
 % NOTES
 %   - Input must be a 2-D grayscale image (uint8, uint16, or float).
-%   - All computation is performed in single precision.
+%   - All per-pixel computation is performed in single precision.
+%   - All sigma/size values passed to fspecial or used to build meshgrid
+%     kernels are cast to double: fspecial and imfilter require double
+%     kernels regardless of the image precision.
 %   - Requires Image Processing Toolbox for imfilter.
-%   - imfilter requires double kernels; kernels are built in double and
-%     passed to imfilter, which returns a single output matching I.
 %   - Parallel execution (parfor) is used automatically if a parallel pool
 %     is already open.
 %
@@ -94,16 +95,19 @@ I = im2single(I);
 %
 % Identical derivation to structureTensorEnhance; inline to avoid a
 % function dependency and to share gradient computations.
+%
+% fspecial('gaussian', HSIZE, SIGMA) requires both HSIZE and SIGMA to be
+% double.  Cast explicitly: params may arrive as single from the GUI.
 % -------------------------------------------------------------------------
-sg   = params.sigmaGrad;
-kszG = 2*ceil(3*sg) + 1;
+sg   = double(params.sigmaGrad);
+kszG = double(2*ceil(3*sg) + 1);
 gG   = fspecial('gaussian', [1, kszG], sg);          % 1-D, double
 Ig   = imfilter(imfilter(I, gG, 'replicate'), gG', 'replicate');
 
 [Ix, Iy] = gradient(Ig);   % central differences, single output
 
-si   = params.sigmaInt;
-kszI = 2*ceil(3*si) + 1;
+si   = double(params.sigmaInt);
+kszI = double(2*ceil(3*si) + 1);
 gI   = fspecial('gaussian', [1, kszI], si);           % 1-D, double
 
 J11 = imfilter(imfilter(Ix.*Ix, gI, 'replicate'), gI', 'replicate');
@@ -131,16 +135,17 @@ theta = mod(theta_fibre + single(pi/2), single(pi)) - single(pi/2);
 %   - short axis (yr): sigma = sigmaAcross (across the fibre)
 %
 % Kernel at 0° is elongated horizontally; at 90°, vertically.
-% Kernels are kept double — imfilter requires a double filter argument.
+% Kernels must be double — imfilter requires a double filter argument.
+% Cast sA, sX, r to double so meshgrid and kernel arithmetic stay double.
 % -------------------------------------------------------------------------
-N        = params.orientations;
+N        = double(params.orientations);
 oris_deg = linspace(0, 180, N + 1);
 oris_deg(end) = [];                       % [0, 180) exclusive, length N
-oris_rad = single(oris_deg * pi / 180);   % radians, for blending step
+oris_rad = single(oris_deg * pi / 180);   % radians, for blending step (single ok)
 
-sA = params.sigmaAlong;
-sX = params.sigmaAcross;
-r  = ceil(3 * sA) + 1;
+sA = double(params.sigmaAlong);
+sX = double(params.sigmaAcross);
+r  = ceil(3 * sA) + 1;                   % double scalar → double range
 [xg, yg] = meshgrid(-r:r, -r:r);         % double grid
 
 Gk_cell   = cell(1, N);

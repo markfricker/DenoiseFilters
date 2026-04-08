@@ -22,6 +22,7 @@ function imOut = medianFilter(im, params)
 if nargin < 2, params = struct(); end
 if ~isfield(params, 'kernelSize'), params.kernelSize = 3; end
 
-k     = max(1, round(params.kernelSize));
+% Cast to double: medfilt2 neighbourhood size must be a double/integer vector.
+k     = double(max(1, round(double(params.kernelSize))));
 imOut = im2single(medfilt2(im2single(im), [k, k], 'symmetric'));
 end

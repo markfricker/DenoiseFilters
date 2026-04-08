@@ -28,13 +28,23 @@ function imOut = diffusionFilter(im, params)
 %   anisotropic diffusion. IEEE T-PAMI 12(7):629-639.
 %
 % See also: bilateralFilter, guidedFilter, imdiffusefilt
+%
+% NOTE on Connectivity
+%   imdiffusefilt uses 'maximal' (8-connected, default) and 'minimal'
+%   (4-connected) — NOT '4-connected'/'8-connected' strings.
+%   'maximal' is the MATLAB default and gives smoother, more isotropic
+%   diffusion; it is used here unconditionally.
 
 if nargin < 2, params = struct(); end
 if ~isfield(params, 'numIterations'),     params.numIterations     = 10;   end
 if ~isfield(params, 'gradientThreshold'), params.gradientThreshold = 0.05; end
 
+% Cast to double: imdiffusefilt validates NumIterations as a double integer
+% and GradientThreshold as a double scalar internally.
+nIter = double(max(1, round(double(params.numIterations))));
+gThr  = double(max(1e-8, double(params.gradientThreshold)));
+
 imOut = im2single(imdiffusefilt(im2single(im), ...
-    'NumberOfIterations', max(1, round(params.numIterations)), ...
-    'GradientThreshold',  max(1e-8, params.gradientThreshold), ...
-    'Connectivity',       '4-connected'));
+    'NumberOfIterations', nIter, ...
+    'GradientThreshold',  gThr));
 end

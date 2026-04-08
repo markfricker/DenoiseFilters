@@ -23,7 +23,8 @@ function imOut = meanFilter(im, params)
 if nargin < 2, params = struct(); end
 if ~isfield(params, 'kernelSize'), params.kernelSize = 3; end
 
-k = max(1, round(params.kernelSize));       % ensure positive integer
+% Cast to double: fspecial('average', HSIZE) requires HSIZE to be double.
+k = double(max(1, round(double(params.kernelSize))));
 
 h     = fspecial('average', [k, k]);
 imOut = im2single(imfilter(im2single(im), h, 'replicate'));

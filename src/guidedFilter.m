@@ -30,11 +30,15 @@ if nargin < 2, params = struct(); end
 if ~isfield(params, 'neighborhoodSize'), params.neighborhoodSize = 5;    end
 if ~isfield(params, 'smoothing'),        params.smoothing        = 0.01;  end
 
-% Enforce odd neighbourhood size
-ns = max(1, round(params.neighborhoodSize));
+% Enforce odd neighbourhood size.
+% Cast to double: imguidedfilter internally calls ones(ns,ns) to build a
+% box-filter kernel passed to imfilter, which requires a double kernel.
+% If ns arrives as single, ones(single(5),single(5)) produces a single
+% array and imfilter throws "Second argument must be a double array".
+ns = double(max(1, round(double(params.neighborhoodSize))));
 if mod(ns, 2) == 0, ns = ns + 1; end
 
-eps   = max(1e-8, params.smoothing);
+eps   = double(max(1e-8, double(params.smoothing)));
 im_s  = im2single(im);
 imOut = im2single(imguidedfilter(im_s, im_s, ...
     'NeighborhoodSize',  ns, ...

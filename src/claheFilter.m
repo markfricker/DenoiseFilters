@@ -37,8 +37,10 @@ if nargin < 2, params = struct(); end
 if ~isfield(params, 'numTiles'),  params.numTiles  = 8;    end
 if ~isfield(params, 'clipLimit'), params.clipLimit = 0.01; end
 
-nt    = max(1, round(params.numTiles));
-cl    = min(max(params.clipLimit, 0), 1);
+% Cast to double: adapthisteq requires NumTiles as a double integer vector
+% and ClipLimit as a double scalar.
+nt    = double(max(1, round(double(params.numTiles))));
+cl    = double(min(max(double(params.clipLimit), 0), 1));
 imOut = im2single(adapthisteq(im2single(im), ...
     'NumTiles',     [nt, nt], ...
     'ClipLimit',    cl, ...
