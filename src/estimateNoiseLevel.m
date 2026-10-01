@@ -16,8 +16,10 @@ function sigma = estimateNoiseLevel(im)
 %     • Gaussian sigma_px:    sigma_px    = max(0.5, sigma * 50)  (heuristic)
 %
 % INPUT
-%   im – 2-D grayscale image (uint8, uint16, or float).
-%        Must contain at least 4 × 4 pixels.
+%   im – 2-D grayscale image (uint8, uint16, or float), or an N-D stack
+%        (e.g. a 3-D volume), in which case one pooled estimate is
+%        returned over all XY planes.  Must contain at least 4 × 4 pixels
+%        per plane.
 %
 % OUTPUT
 %   sigma – estimated noise standard deviation (single, ≥ 0), normalised
@@ -30,7 +32,7 @@ function sigma = estimateNoiseLevel(im)
 % See also: autoDenoiseParams
 
 im = im2single(im);
-[M, N] = size(im);
+[M, N, ~] = size(im);
 if M < 4 || N < 4
     sigma = single(0);
     return
@@ -39,9 +41,19 @@ end
 % 3×3 Laplacian kernel (Immerkær 1996, eq. 3)
 W = [1, -2, 1; -2, 4, -2; 1, -2, 1];
 
+% N-D input (e.g. a Z-stack volume): the estimator is defined on a 2-D
+% plane, so apply it to every XY plane and pool the residuals into one
+% estimate.  Planes are kept in XY so anisotropic Z spacing doesn't bias
+% it.  A 2-D image is a single plane -- identical to the original formula.
+nPlanes = numel(im) / (M*N);
+im      = reshape(im, M, N, nPlanes);
+total   = 0;
+for k = 1:nPlanes
+    total = total + sum(abs(conv2(double(im(:,:,k)), W, 'valid')), 'all');
+end
+
 sigma = single( ...
-    sqrt(pi/2) / (6 * double(M-2) * double(N-2)) * ...
-    sum(abs(conv2(double(im), W, 'valid')), 'all') ...
+    sqrt(pi/2) / (6 * double(M-2) * double(N-2) * nPlanes) * total ...
     );
 sigma = max(sigma, single(0));
 end
