@@ -36,8 +36,8 @@ classdef test_autoDenoiseParams < matlab.unittest.TestCase
 
         function testBilateralFieldsPresent(tc)
             p = autoDenoiseParams(tc.TestData.im, 'bilateral');
-            tc.verifyField(p, 'spatialSigma');
-            tc.verifyField(p, 'rangeSigma');
+            tc.verifyTrue(isfield(p, 'spatialSigma'), 'Missing field spatialSigma.');
+            tc.verifyTrue(isfield(p, 'rangeSigma'),   'Missing field rangeSigma.');
         end
 
         function testBilateralRangeSigmaScalesWithNoise(tc)

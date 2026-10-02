@@ -19,14 +19,13 @@ function Ism = orientedGaussSmooth(I, params)
 %   ALGORITHM
 %   1. Estimate local orientation θ and coherence C from the structure tensor.
 %   2. Pre-convolve I with N oriented Gaussians at discrete angles θ_k.
-%   3. Blend the convolved images per-pixel using cosine-squared weights
-%      scaled by the coherence index:
+%   3. Blend the convolved images per-pixel, interpolating linearly in angle
+%      between the two kernels either side of θ, scaled by the coherence:
 %
-%        w_k(x,y) = C(x,y)·cos²(θ(x,y) − θ_k) + (1−C(x,y))/N
-%        Ism      = Σ_k w_k · G_k(I) / Σ_k w_k
+%        a_k(x,y) = max(0, 1 − |θ(x,y) − θ_k|_π / (π/N))
+%        w_k(x,y) = C(x,y)·a_k(x,y) + (1−C(x,y))/N
+%        Ism      = Σ_k w_k · G_k(I)          (Σ_k w_k = 1 exactly)
 %
-%   Because Σ_k cos²(θ − θ_k) = N/2 exactly for N uniformly-spaced θ_k,
-%   the denominator simplifies to 1 + C·(N/2 − 1) (no per-pixel loop).
 %   The (1−C)/N isotropic component ensures the output is well-defined and
 %   noise-smoothed in flat background regions.
 %
@@ -59,7 +58,9 @@ function Ism = orientedGaussSmooth(I, params)
 %
 %   Freeman W.T. & Adelson E.H. (1991) The design and use of steerable
 %   filters. IEEE T-PAMI 13(9):891-906.
-%     → theoretical basis for blending discrete orientation responses.
+%     → background on blending discrete orientation responses (the
+%       anisotropic kernels here are not exactly steerable, hence the
+%       linear angular interpolation rather than cos² weights).
 %
 % See also: structureTensorEnhance, imdiffusefilt, imguidedfilter
 
@@ -77,10 +78,12 @@ if ~isfield(params, 'sigmaInt'),     params.sigmaInt     = 5;   end
 % input validation
 % -------------------------------------------------------------------------
 if size(I, 3) > 1
-    error('orientedGaussSmooth: expected a 2-D grayscale image.');
+    error('orientedGaussSmooth:not2D', ...
+        'orientedGaussSmooth: expected a 2-D grayscale image.');
 end
 if params.sigmaAlong <= 0 || params.sigmaAcross <= 0
-    error('orientedGaussSmooth: sigmaAlong and sigmaAcross must be positive.');
+    error('orientedGaussSmooth:nonPositiveSigma', ...
+        'orientedGaussSmooth: sigmaAlong and sigmaAcross must be positive.');
 end
 if params.sigmaAlong < params.sigmaAcross
     warning('orientedGaussSmooth:sigmaOrder', ...
@@ -172,23 +175,30 @@ else
 end
 
 % -------------------------------------------------------------------------
-% step 3: coherence-weighted cosine² blending
+% step 3: coherence-weighted blending, linear in angle between neighbours
 %
-%   w_k  = C .* cos²(theta − theta_k) + (1−C) / N
+%   a_k  = max(0, 1 − |theta − theta_k|_π / Δ),   Δ = π/N
+%   w_k  = C .* a_k + (1−C) / N
 %
-%   Σ_k cos²(theta − theta_k) = N/2  (exactly, for uniform spacing)
-%   ⟹  Σ_k w_k = 1 + C .* (N/2 − 1)   (pixel-wise scalar, no loop needed)
+%   |·|_π is the angular distance modulo π.  a_k is non-zero only for the
+%   two kernels either side of theta and Σ_k a_k = 1 exactly, so Σ_k w_k = 1
+%   (no normalisation needed).
 %
-%   High C → weight concentrated near local orientation (steered smoothing)
+%   High C → steered smoothing with the kernel(s) aligned to the fibre
 %   Low  C → equal weights for all orientations (isotropic smoothing)
+%
+%   A cos² weight is NOT used: the oriented anisotropic Gaussians are not
+%   a steerable basis, and cos² spreads half the weight onto kernels ≥45°
+%   off-axis, which blur across the fibre more than an isotropic Gaussian
+%   of comparable size (test_orientedGaussSmooth/testFibrePreservation).
 % -------------------------------------------------------------------------
-Inumer = zeros(m, n, 'single');
+dTheta = single(pi / N);
+Ism    = zeros(m, n, 'single');
 for k = 1:N
-    wk     = C .* (cos(theta - oris_rad(k)) .^ 2) + (single(1) - C) ./ single(N);
-    Inumer = Inumer + wk .* Gk_cell{k};
+    dk  = abs(mod(theta - oris_rad(k) + single(pi/2), single(pi)) - single(pi/2));
+    ak  = max(single(0), single(1) - dk ./ dTheta);
+    wk  = C .* ak + (single(1) - C) ./ single(N);
+    Ism = Ism + wk .* Gk_cell{k};
 end
-Idenom = single(1) + C .* (single(N)/2 - single(1));
-
-Ism = Inumer ./ Idenom;
 
 end

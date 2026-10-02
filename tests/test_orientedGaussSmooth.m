@@ -42,7 +42,8 @@ classdef test_orientedGaussSmooth < matlab.unittest.TestCase
         function testSigmaAlongMustBePositive(tc)
             im    = rand(20, 20, 'single');
             p     = struct('sigmaAlong', -1, 'sigmaAcross', 1.5);
-            tc.verifyError(@() orientedGaussSmooth(im, p), 'MATLAB:error');
+            tc.verifyError(@() orientedGaussSmooth(im, p), ...
+                'orientedGaussSmooth:nonPositiveSigma');
         end
 
         function testWarningWhenAlongLessThanAcross(tc)
@@ -53,12 +54,14 @@ classdef test_orientedGaussSmooth < matlab.unittest.TestCase
         end
 
         function testFibrePreservation(tc)
-            % Synthetic horizontal fibre image: smoothing along fibres should
-            % preserve cross-fibre contrast better than isotropic Gaussian.
+            % Synthetic vertical stripes (intensity varies along x only):
+            % smoothing along the stripes should preserve cross-stripe
+            % contrast better than an isotropic Gaussian.
+            rng(1);
             im = single(repmat(sin(linspace(0, 2*pi, 60)).^2, 60, 1));
             im = im + 0.02 * randn(size(im), 'single');
 
-            % Along = horizontal (theta~0), sigmaAlong large, sigmaAcross small
+            % Along = vertical (theta~90 deg), sigmaAlong large, sigmaAcross small
             p.sigmaAlong   = 5;
             p.sigmaAcross  = 1;
             p.orientations = 8;
@@ -68,16 +71,17 @@ classdef test_orientedGaussSmooth < matlab.unittest.TestCase
             outOG    = orientedGaussSmooth(im, p);
             outIso.sigma = 2;   outGauss = gaussianFilter(im, outIso);
 
-            % Variance across columns (cross-fibre) should be higher for OG
+            % Image variance is dominated by the cross-stripe signal, so
+            % it should be higher for OG
             varOG    = var(outOG(:));
             varGauss = var(outGauss(:));
-            tc.verifyGreaterThan(varOG, varGauss * 0.9, ...
+            tc.verifyGreaterThan(varOG, varGauss, ...
                 'orientedGauss should preserve more cross-fibre contrast than isotropic Gaussian.');
         end
 
         function test3DInputThrowsError(tc)
             im = rand(20, 20, 3, 'single');
-            tc.verifyError(@() orientedGaussSmooth(im), 'MATLAB:error');
+            tc.verifyError(@() orientedGaussSmooth(im), 'orientedGaussSmooth:not2D');
         end
 
     end
